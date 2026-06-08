@@ -1,0 +1,114 @@
+{% extends 'core/base.html' %}
+{% block title %}Dashboard – ParaSmart AI{% endblock %}
+{% block topbar_icon %}<i class="bi bi-house"></i>{% endblock %}
+{% block topbar_title %}Home{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Selamat datang, {{ request.user.get_full_name|default:request.user.username }}!</h2>
+</div>
+
+<!-- Stats Row -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card-feature d-flex align-items-center gap-3">
+            <div style="width:46px;height:46px;border-radius:12px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="bi bi-pencil-square" style="color:var(--primary);font-size:20px;"></i>
+            </div>
+            <div>
+                <div style="font-size:22px;font-weight:800;color:var(--primary);">{{ parafrase_count }}</div>
+                <div style="font-size:13px;color:var(--text-muted);">Total Parafrase</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card-feature d-flex align-items-center gap-3">
+            <div style="width:46px;height:46px;border-radius:12px;background:#fff5f5;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="bi bi-search" style="color:#e53e3e;font-size:20px;"></i>
+            </div>
+            <div>
+                <div style="font-size:22px;font-weight:800;color:#e53e3e;">{{ plagiarisme_count }}</div>
+                <div style="font-size:13px;color:var(--text-muted);">Cek Plagiarisme</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card-feature d-flex align-items-center gap-3">
+            <div style="width:46px;height:46px;border-radius:12px;background:#f0fff4;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="bi bi-upload" style="color:#38a169;font-size:20px;"></i>
+            </div>
+            <div>
+                <div style="font-size:22px;font-weight:800;color:#38a169;">{{ upload_count }}</div>
+                <div style="font-size:13px;color:var(--text-muted);">File Diupload</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Feature Cards sesuai Figma -->
+<div class="row g-3">
+    <!-- Parafrase Card -->
+    <div class="col-md-6">
+        <div class="card-feature">
+            <h5><i class="bi bi-pencil-square me-2" style="color:var(--primary);"></i>Parafrase</h5>
+            <p style="margin-bottom:16px;">
+                Marafrasean teks ginian diparafrasekan di ini...<br>
+                <small>Parafrase yang harus di parafrase ya ges ya tidak boleh plagiat karena plagiat itu dilarang.</small>
+            </p>
+            <div class="d-flex justify-content-end">
+                <a href="{% url 'parafrase' %}" class="btn-primary-custom">
+                    Tombol <i class="bi bi-chevron-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Plagiarisme Card -->
+    <div class="col-md-6">
+        <div class="card-feature">
+            <h5><i class="bi bi-search me-2" style="color:var(--primary);"></i>Cek Plagiarisme</h5>
+            <p style="margin-bottom:16px;">
+                Cek Tingkatan Kemiripan Antar Teks<br>
+                <small>Jadi kali ini kita akan mengecekin ya ges tingkat kemiripan tersebut.</small>
+            </p>
+            <div class="d-flex justify-content-end">
+                <a href="{% url 'plagiarisme' %}" class="btn-primary-custom">
+                    Tombol <i class="bi bi-chevron-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Card -->
+    <div class="col-md-6">
+        <div class="card-feature">
+            <h5><i class="bi bi-upload me-2" style="color:var(--primary);"></i>Upload File</h5>
+            <p style="margin-bottom:16px;">
+                Upload file .txt atau .pdf untuk diproses otomatis.<br>
+                <small>Ekstrak teks dari dokumen kamu secara langsung.</small>
+            </p>
+            <div class="d-flex justify-content-end">
+                <a href="{% url 'upload' %}" class="btn-primary-custom">
+                    Tombol <i class="bi bi-chevron-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Card -->
+    <div class="col-md-6">
+        <div class="card-feature">
+            <h5><i class="bi bi-clock-history me-2" style="color:var(--primary);"></i>History</h5>
+            <p style="margin-bottom:16px;">
+                Lihat riwayat aktivitas kamu.<br>
+                <small>Semua hasil parafrase dan pengecekan tersimpan di sini.</small>
+            </p>
+            <div class="d-flex justify-content-end">
+                <a href="{% url 'history' %}" class="btn-primary-custom">
+                    Tombol <i class="bi bi-chevron-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

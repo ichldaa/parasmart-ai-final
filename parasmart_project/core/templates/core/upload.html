@@ -1,0 +1,249 @@
+{% extends 'core/base.html' %}
+{% block title %}Upload – ParaSmart AI{% endblock %}
+{% block topbar_icon %}<i class="bi bi-upload"></i>{% endblock %}
+{% block topbar_title %}Upload{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Upload File</h2>
+</div>
+
+<!-- Upload Box -->
+<div class="card-feature mb-4">
+    <div id="uploadBox" class="upload-box"
+         onclick="document.getElementById('fileInput').click()"
+         ondragover="event.preventDefault();this.classList.add('dragover')"
+         ondragleave="this.classList.remove('dragover')"
+         ondrop="handleDrop(event)">
+        <i class="bi bi-cloud-upload"></i>
+        <p style="font-size:16px;font-weight:600;color:#4a5568;margin-bottom:6px;">
+            Drag &amp; drop untuk mengunggah file tersebut
+        </p>
+        <p>
+            <span class="upload-link">Klik pilihan file a</span>
+            &nbsp;Lalu diunggah
+        </p>
+        <p style="margin-top:8px;font-size:12px;color:#a0aec0;">Format: .txt, .pdf • Maks 10MB</p>
+    </div>
+    <input type="file" id="fileInput" accept=".txt,.pdf" style="display:none;" onchange="handleFile(this.files[0])">
+
+    <!-- Progress bar -->
+    <div id="uploadProgress" style="display:none;margin-top:16px;">
+        <div style="font-size:13px;color:#718096;margin-bottom:6px;">Sedang mengupload...</div>
+        <div class="progress-bar-wrap">
+            <div id="uploadBar" class="progress-bar-fill" style="width:0%;background:var(--primary);">
+                <span class="progress-label">0%</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Info Card -->
+<div class="card-feature mb-4" style="font-size:13px;color:#718096;line-height:1.7;">
+    <i class="bi bi-info-circle me-2" style="color:var(--primary);"></i>
+    Jadi disini kita harus mengupload file yang mau di cek untuk mendeteksi plagiarisme dan parafrase,
+    setelah itu kita akan melihat bagaimana hasil dari pengecekan tersebut,
+    apakah begini apakah begitu hasilnya kita tidak tau.
+</div>
+
+<!-- Hasil Upload -->
+<div id="uploadResult" style="display:none;">
+    <div class="result-card mb-4">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-file-earmark-check" style="color:var(--primary);font-size:22px;"></i>
+            <div>
+                <h6 style="margin:0;font-weight:700;" id="uploadedFilename">-</h6>
+                <small style="color:#718096;" id="uploadedInfo">-</small>
+            </div>
+        </div>
+
+        <!-- Preview teks -->
+        <div style="margin-bottom:14px;">
+            <div style="font-size:12px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">
+                Preview Teks Terekstrak
+            </div>
+            <div id="extractedPreview"
+                style="background:#f5f7fa;border-radius:8px;padding:14px;font-size:13px;color:#4a5568;max-height:180px;overflow-y:auto;line-height:1.6;border:1px solid #e2e8f0;">
+            </div>
+        </div>
+
+        <!-- Tombol aksi -->
+        <div style="background:var(--primary-light);border-radius:10px;padding:16px;">
+            <p style="font-size:13px;font-weight:600;color:#2d6b75;margin-bottom:12px;">
+                <i class="bi bi-lightning-charge me-1"></i>
+                Gunakan teks ini untuk:
+            </p>
+            <div class="d-flex gap-3 flex-wrap">
+                <button class="btn-primary-custom" onclick="sendToParafrase()" style="flex:1;justify-content:center;">
+                    <i class="bi bi-pencil-square"></i> Parafrase Teks
+                </button>
+                <button class="btn-outline-custom" onclick="sendToPlagiarisme()" style="flex:1;justify-content:center;">
+                    <i class="bi bi-search"></i> Cek Plagiarisme
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabel file sebelumnya -->
+{% if uploads %}
+<div class="card-feature">
+    <h6 style="margin-bottom:14px;font-weight:700;">
+        <i class="bi bi-clock-history me-2" style="color:var(--primary);"></i>File Sebelumnya
+    </h6>
+    <table class="table-custom">
+        <thead>
+            <tr><th>Nama File</th><th>Tanggal</th><th>Aksi</th></tr>
+        </thead>
+        <tbody>
+            {% for f in uploads %}
+            <tr>
+                <td>
+                    <i class="bi bi-file-earmark me-2" style="color:var(--primary);"></i>
+                    {{ f.original_filename }}
+                </td>
+                <td>{{ f.uploaded_at|date:"d M Y" }}</td>
+                <td>
+                    <button class="btn-primary-custom" style="padding:5px 14px;font-size:12px;"
+                        onclick="loadOldFile(`{{ f.extracted_text|escapejs }}`, '{{ f.original_filename|escapejs }}')">
+                        <i class="bi bi-eye"></i> Lihat
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<!-- Alert -->
+<div id="alertUpload" style="display:none;position:fixed;bottom:24px;right:24px;z-index:999;min-width:280px;"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+let currentText = '';
+
+function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('uploadBox').classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+}
+
+function handleFile(file) {
+    if (!file) return;
+
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!['txt', 'pdf'].includes(ext)) {
+        showAlert('error', 'Format tidak didukung! Gunakan .txt atau .pdf');
+        return;
+    }
+
+    // Tampilkan progress
+    const progress = document.getElementById('uploadProgress');
+    const bar = document.getElementById('uploadBar');
+    progress.style.display = 'block';
+    document.getElementById('uploadResult').style.display = 'none';
+
+    // Animasi progress
+    let pct = 10;
+    bar.style.width = pct + '%';
+    const timer = setInterval(() => {
+        pct += 15;
+        if (pct > 80) pct = 80;
+        bar.style.width = pct + '%';
+        bar.querySelector('.progress-label').textContent = pct + '%';
+    }, 200);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    fetch('/api/upload/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': CSRF },
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        clearInterval(timer);
+        bar.style.width = '100%';
+        bar.querySelector('.progress-label').textContent = '100%';
+
+        setTimeout(() => {
+            progress.style.display = 'none';
+
+            if (data.success) {
+                // Simpan teks lengkap
+                currentText = data.full_text || data.extracted_text || '';
+
+                // Tampilkan hasil
+                document.getElementById('uploadedFilename').textContent = data.filename;
+                document.getElementById('uploadedInfo').textContent =
+                    currentText.length + ' karakter berhasil diekstrak';
+                document.getElementById('extractedPreview').textContent =
+                    currentText.substring(0, 600) + (currentText.length > 600 ? '...' : '');
+
+                document.getElementById('uploadResult').style.display = 'block';
+
+                // Scroll ke hasil
+                document.getElementById('uploadResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+                showAlert('success', '✅ File "' + data.filename + '" berhasil diupload!');
+            } else {
+                showAlert('error', '❌ ' + (data.error || 'Upload gagal.'));
+            }
+        }, 400);
+    })
+    .catch(e => {
+        clearInterval(timer);
+        progress.style.display = 'none';
+        showAlert('error', 'Error koneksi: ' + e.message);
+    });
+}
+
+function loadOldFile(text, filename) {
+    currentText = text;
+    document.getElementById('uploadedFilename').textContent = filename;
+    document.getElementById('uploadedInfo').textContent =
+        text.length + ' karakter';
+    document.getElementById('extractedPreview').textContent =
+        text.substring(0, 600) + (text.length > 600 ? '...' : '');
+    document.getElementById('uploadResult').style.display = 'block';
+    document.getElementById('uploadResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function sendToParafrase() {
+    if (!currentText || currentText.trim() === '') {
+        showAlert('error', 'Tidak ada teks yang bisa dikirim!');
+        return;
+    }
+    // Simpan ke sessionStorage lalu pindah halaman
+    sessionStorage.setItem('parasmart_text', currentText);
+    showAlert('success', 'Mengarahkan ke halaman Parafrase...');
+    setTimeout(() => { window.location.href = '/parafrase/'; }, 800);
+}
+
+function sendToPlagiarisme() {
+    if (!currentText || currentText.trim() === '') {
+        showAlert('error', 'Tidak ada teks yang bisa dikirim!');
+        return;
+    }
+    sessionStorage.setItem('parasmart_text', currentText);
+    showAlert('success', 'Mengarahkan ke halaman Plagiarisme...');
+    setTimeout(() => { window.location.href = '/plagiarisme/'; }, 800);
+}
+
+function showAlert(type, msg) {
+    const box = document.getElementById('alertUpload');
+    const cls = type === 'error' ? 'alert-error' : 'alert-success';
+    const icon = type === 'error' ? 'bi-exclamation-circle' : 'bi-check-circle';
+    box.className = 'alert-custom ' + cls;
+    box.innerHTML = '<i class="bi ' + icon + '"></i> ' + msg;
+    box.style.display = 'flex';
+    clearTimeout(box._timer);
+    box._timer = setTimeout(() => box.style.display = 'none', 4000);
+}
+</script>
+{% endblock %}

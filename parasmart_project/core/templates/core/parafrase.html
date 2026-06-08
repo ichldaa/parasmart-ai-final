@@ -1,0 +1,137 @@
+{% extends 'core/base.html' %}
+{% block title %}Parafrase – ParaSmart AI{% endblock %}
+{% block topbar_icon %}<i class="bi bi-pencil-square"></i>{% endblock %}
+{% block topbar_title %}Parafrase{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Parafrase</h2>
+</div>
+
+<div class="row g-4">
+    <div class="col-12">
+        <!-- Input Card -->
+        <div class="card-feature mb-3">
+            <textarea id="inputText" class="custom-textarea" rows="7"
+                placeholder="Masukkan teks yang ingin di parafrasekan disini..."></textarea>
+
+            <div class="d-flex align-items-center gap-3 mt-3 flex-wrap">
+                <div class="d-flex align-items-center gap-2">
+                    <label style="font-size:13px;font-weight:600;color:#4a5568;white-space:nowrap;">Gaya Parafrase</label>
+                    <select id="styleSelect" class="custom-select">
+                        <option value="formal">Formal</option>
+                        <option value="santai">Santai</option>
+                        <option value="ilmiah">Ilmiah</option>
+                        <option value="singkat">Singkat</option>
+                    </select>
+                </div>
+                <button id="btnParafrase" class="btn-primary-custom ms-auto" onclick="doParafrase()">
+                    <span id="btnText">Parafrase Sekarang</span>
+                    <i class="bi bi-chevron-down"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Alert Box -->
+        <div id="alertBox" style="display:none;" class="mb-3"></div>
+
+        <!-- Result Card -->
+        <div class="result-card">
+            <h6><i class="bi bi-stars me-2" style="color:var(--primary);"></i>Hasil Parafrase</h6>
+            <div id="resultArea" style="color:#718096;font-size:14px;line-height:1.7;min-height:80px;">
+                Hasil Parafrase akan muncul disini . . .<br>
+                <small>Jadi kali ini kita akan mengecekin ya ges yang tingkat kemiripan tersebut.</small>
+            </div>
+            <div id="resultActions" style="display:none;" class="d-flex justify-content-between align-items-center mt-3">
+                <span id="charCount" class="stat-badge"></span>
+                <button class="btn-primary-custom" onclick="copyResult()">
+                    <i class="bi bi-clipboard"></i> Efek Manipulasi
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+
+// Auto-load teks dari Upload
+window.addEventListener('DOMContentLoaded', function() {
+    try {
+        const text = sessionStorage.getItem('parasmart_text');
+        if (text && text.trim() !== '') {
+            document.getElementById('inputText').value = text;
+            sessionStorage.removeItem('parasmart_text');
+            showAlert('info', '<i class="bi bi-check-circle"></i> Teks dari file berhasil dimuat! Klik <b>Parafrase Sekarang</b> untuk memproses.');
+        }
+    } catch(e) {}
+});
+
+async function doParafrase() {
+    const text = document.getElementById('inputText').value.trim();
+    const style = document.getElementById('styleSelect').value;
+    const btn = document.getElementById('btnParafrase');
+    const btnText = document.getElementById('btnText');
+    const resultArea = document.getElementById('resultArea');
+    const resultActions = document.getElementById('resultActions');
+
+    if (!text) {
+        showAlert('error', 'Masukkan teks terlebih dahulu!');
+        return;
+    }
+
+    btn.disabled = true;
+    btnText.innerHTML = '<span class="spinner-custom me-2"></span>Memproses...';
+    resultArea.innerHTML = '<span style="color:#a0aec0;font-style:italic;">Sedang memproses teks kamu...</span>';
+    resultActions.style.display = 'none';
+
+    try {
+        const res = await fetch('/api/parafrase/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+            body: JSON.stringify({ text, style })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            resultArea.innerHTML = '<span style="color:#2d3748;">' + escapeHtml(data.paraphrased) + '</span>';
+            resultActions.style.display = 'flex';
+            document.getElementById('charCount').textContent = data.paraphrased.length + ' karakter';
+            showAlert('success', 'Parafrase berhasil disimpan ke history!');
+        } else {
+            showAlert('error', data.error || 'Gagal memproses.');
+            resultArea.innerHTML = 'Hasil Parafrase akan muncul disini . . .';
+        }
+    } catch(e) {
+        showAlert('error', 'Koneksi error: ' + e.message);
+        resultArea.innerHTML = 'Hasil Parafrase akan muncul disini . . .';
+    } finally {
+        btn.disabled = false;
+        btnText.textContent = 'Parafrase Sekarang';
+    }
+}
+
+function copyResult() {
+    const text = document.getElementById('resultArea').innerText;
+    navigator.clipboard.writeText(text).then(() => {
+        showAlert('success', 'Teks berhasil disalin!');
+    });
+}
+
+function showAlert(type, msg) {
+    const box = document.getElementById('alertBox');
+    const cls = type === 'error' ? 'alert-error' : type === 'info' ? 'alert-info' : 'alert-success';
+    box.className = 'alert-custom ' + cls;
+    box.innerHTML = msg;
+    box.style.display = 'flex';
+    clearTimeout(box._t);
+    box._t = setTimeout(() => box.style.display = 'none', 5000);
+}
+
+function escapeHtml(text) {
+    return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+</script>
+{% endblock %}

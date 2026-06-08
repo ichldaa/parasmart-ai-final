@@ -1,0 +1,152 @@
+{% extends 'core/base.html' %}
+{% block title %}Plagiarisme – ParaSmart AI{% endblock %}
+{% block topbar_icon %}<i class="bi bi-search"></i>{% endblock %}
+{% block topbar_title %}Plagiarisme{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Cek Plagiarisme</h2>
+</div>
+
+<!-- Alert Box -->
+<div id="alertPlag" style="display:none;" class="mb-3"></div>
+
+<div class="card-feature mb-4">
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label style="font-size:13px;font-weight:600;color:#4a5568;display:block;margin-bottom:6px;">
+                <i class="bi bi-file-text me-1" style="color:var(--primary);"></i>Teks Pertama
+            </label>
+            <textarea id="text1" class="custom-textarea" rows="9"
+                placeholder="Masukkan teks pertama di sini..."></textarea>
+        </div>
+        <div class="col-md-6">
+            <label style="font-size:13px;font-weight:600;color:#4a5568;display:block;margin-bottom:6px;">
+                <i class="bi bi-file-text me-1" style="color:var(--primary);"></i>Teks Kedua
+            </label>
+            <textarea id="text2" class="custom-textarea" rows="9"
+                placeholder="Masukkan teks kedua di sini..."></textarea>
+        </div>
+    </div>
+    <div class="d-flex justify-content-end mt-3">
+        <button id="btnCek" class="btn-primary-custom" onclick="doCek()">
+            <span id="btnCekText">Cek Plagiarisme</span>
+            <i class="bi bi-search"></i>
+        </button>
+    </div>
+</div>
+
+<!-- Result -->
+<div id="resultSection" style="display:none;">
+    <div class="result-card">
+        <h6><i class="bi bi-bar-chart me-2" style="color:var(--primary);"></i>Hasil Analisis Kemiripan</h6>
+        <div class="d-flex align-items-center gap-4 my-3 flex-wrap">
+            <div id="percentCircle"
+                style="width:90px;height:90px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff;flex-shrink:0;">
+            </div>
+            <div>
+                <div style="font-size:13px;color:#718096;margin-bottom:4px;">Tingkat Kemiripan</div>
+                <div id="levelText" style="font-size:18px;font-weight:700;"></div>
+                <div id="levelDesc" style="font-size:13px;color:#718096;margin-top:4px;"></div>
+            </div>
+        </div>
+        <div class="progress-bar-wrap">
+            <div id="progressFill" class="progress-bar-fill" style="width:0%;">
+                <span id="progressLabel" class="progress-label"></span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+
+// Auto-load teks dari Upload
+window.addEventListener('DOMContentLoaded', function() {
+    try {
+        const text = sessionStorage.getItem('parasmart_text');
+        if (text && text.trim() !== '') {
+            document.getElementById('text1').value = text;
+            sessionStorage.removeItem('parasmart_text');
+            showAlert('info', 'Teks dari file berhasil dimuat di Teks Pertama! Isi Teks Kedua lalu klik <b>Cek Plagiarisme</b>.');
+        }
+    } catch(e) {}
+});
+
+async function doCek() {
+    const text1 = document.getElementById('text1').value.trim();
+    const text2 = document.getElementById('text2').value.trim();
+    const btn = document.getElementById('btnCek');
+    const btnText = document.getElementById('btnCekText');
+
+    if (!text1 || !text2) {
+        showAlert('error', 'Masukkan kedua teks terlebih dahulu!');
+        return;
+    }
+
+    btn.disabled = true;
+    btnText.innerHTML = '<span class="spinner-custom me-2"></span>Menganalisis...';
+    document.getElementById('resultSection').style.display = 'none';
+
+    try {
+        const res = await fetch('/api/plagiarisme/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+            body: JSON.stringify({ text1, text2 })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            const pct = data.similarity;
+            const color = data.color;
+            const level = data.level;
+
+            document.getElementById('percentCircle').style.background = color;
+            document.getElementById('percentCircle').textContent = pct.toFixed(1) + '%';
+
+            const labels = { rendah: 'Kemiripan Rendah', sedang: 'Kemiripan Sedang', tinggi: 'Kemiripan Tinggi' };
+            const descs = {
+                rendah: '✅ Teks cukup unik dan original.',
+                sedang: '⚠️ Ada beberapa kemiripan, perlu direvisi.',
+                tinggi: '❌ Tingkat kemiripan sangat tinggi, indikasi plagiat!'
+            };
+
+            document.getElementById('levelText').textContent = labels[level];
+            document.getElementById('levelText').style.color = color;
+            document.getElementById('levelDesc').textContent = descs[level];
+
+            const fill = document.getElementById('progressFill');
+            fill.style.background = color;
+            fill.style.width = '0%';
+            document.getElementById('progressLabel').textContent = pct.toFixed(1) + '%';
+            document.getElementById('resultSection').style.display = 'block';
+            setTimeout(() => fill.style.width = pct + '%', 100);
+
+            showAlert('success', 'Analisis selesai! Kemiripan: ' + pct.toFixed(1) + '%');
+
+            // Scroll ke hasil
+            document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+            showAlert('error', data.error || 'Gagal menganalisis.');
+        }
+    } catch(e) {
+        showAlert('error', 'Koneksi error: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btnText.textContent = 'Cek Plagiarisme';
+    }
+}
+
+function showAlert(type, msg) {
+    const box = document.getElementById('alertPlag');
+    const cls = type === 'error' ? 'alert-error' : type === 'info' ? 'alert-info' : 'alert-success';
+    box.className = 'alert-custom ' + cls;
+    box.innerHTML = '<i class="bi bi-' + (type === 'error' ? 'exclamation-circle' : type === 'info' ? 'info-circle' : 'check-circle') + ' me-2"></i>' + msg;
+    box.style.display = 'flex';
+    clearTimeout(box._t);
+    box._t = setTimeout(() => box.style.display = 'none', 6000);
+}
+</script>
+{% endblock %}
