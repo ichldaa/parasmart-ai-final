@@ -2,7 +2,9 @@ import json
 import math
 import re
 import os
+from xml.parsers.expat import model
 import requests
+import google.generativeai as genai
 from collections import Counter
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -62,6 +64,18 @@ def register_view(request):
 def logout_view(request):
     logout(request)
     return redirect('login')
+
+@login_required
+def profile_view(request):
+    from .models import ParaphraseResult, PlagiarismCheck, UploadedFile
+    total_parafrase = ParaphraseResult.objects.filter(user=request.user).count()
+    total_plagiarisme = PlagiarismCheck.objects.filter(user=request.user).count()
+    total_upload = UploadedFile.objects.filter(user=request.user).count()
+    return render(request, 'core/profile.html', {
+        'total_parafrase': total_parafrase,
+        'total_plagiarisme': total_plagiarisme,
+        'total_upload': total_upload,
+    })
 
 
 # ─────────────────────────────────────────────
@@ -128,8 +142,8 @@ def api_parafrase(request):
         if len(text) < 10:
             return JsonResponse({'error': 'Teks terlalu pendek.'}, status=400)
 
-        # Panggil DeepSeek AI API
-        api_key = settings.DEEPSEEK_API_KEY
+        # Panggil AI API (DeepSeek)
+        api_key = settings.GEMINI_API_KEY
 
         style_prompts = {
             'formal': 'sangat formal dan akademik',
@@ -148,25 +162,13 @@ Teks asli:
 
 Hasil parafrase:"""
 
-        response = requests.post(
-            'https://api.deepseek.com/chat/completions',
-            headers={
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json',
-            },
-            json={
-                'model': 'deepseek-chat',
-                'messages': [{'role': 'user', 'content': prompt}],
-                'stream': False
-            },
-            timeout=30
-        )
+        genai.configure(api_key=api_key)
 
-        if response.status_code == 200:
-            result_data = response.json()
-            paraphrased = result_data['choices'][0]['message']['content'].strip()
-        else:
-            paraphrased = f"[Simulasi Parafrase - {style}] {text}"
+        model = genai.GenerativeModel("gemini-2.5-flash")
+
+        response = model.generate_content(prompt)
+
+        paraphrased = response.text.strip()
 
         # Simpan ke database
         result = ParaphraseResult.objects.create(

@@ -26,4 +26,6 @@ urlpatterns = [
     # History
     path('history/', views.history_view, name='history'),
     path('api/history/delete/<int:pk>/<str:type>/', views.api_delete_history, name='api_delete_history'),
+
+    path('profile/', views.profile_view, name='profile'),
 ]

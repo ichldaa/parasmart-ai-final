@@ -261,9 +261,11 @@
         {% block topbar_icon %}<i class="bi bi-house"></i>{% endblock %}
         &nbsp;{% block topbar_title %}Home{% endblock %}
     </div>
-    <div class="topbar-user">
+<div class="topbar-user">
+    <a href="{% url 'profile' %}" style="color:inherit; text-decoration:none;">
         <i class="bi bi-person"></i>
-    </div>
+    </a>
+</div>
 </header>
 
 <!-- MAIN -->
