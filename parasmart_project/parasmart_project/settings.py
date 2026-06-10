@@ -11,6 +11,7 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     'localhost',
     'parasmartai.pythonanywhere.com',
+    'authentix.pythonanywhere.com',
 ]
 
 INSTALLED_APPS = [
